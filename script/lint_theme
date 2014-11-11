@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+var less  = require("less"),
+		fs = require("fs"),
+		path = require("path");
+
+var packageDirectory = process.argv[2],
+		indexPath = path.join(packageDirectory, "index.less"),
+		stylesheetsPath = path.join(packageDirectory, "stylesheets");
+
+var data = fs.readFileSync(indexPath);
+
+var REPLACEMENTS = {
+	".bracket-matcher": ".bracket-matcher .region"
+};
+
+less.render(data.toString(), {
+	dumpLineNumbers: "comments",
+	paths: [stylesheetsPath]
+}).then(function(result) {
+	result.css.split("/*").forEach(function(sourceLine) {
+		if (!sourceLine) return;
+
+		var parts = sourceLine.split("*/\n"),
+				line = parts[0].match(/line (\d+)/)[1],
+				selectors = parts[1].substr(0, parts[1].indexOf(' {')).split(/,\s*/);
+
+		for (var deprecatedSelector in REPLACEMENTS) {
+			var newSelector = REPLACEMENTS[deprecatedSelector];
+			selectors.forEach(function(selector) {
+				if (selector.trim() == deprecatedSelector) {
+					console.log("DON'T USE THIS:", deprecatedSelector, "(line", line, ")");
+					console.log("USE THIS:", newSelector);
+				}
+			});
+		}
+	});
+}, function(err) {
+	console.error(err);
+});
